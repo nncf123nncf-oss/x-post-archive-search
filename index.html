@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>自分のXの過去投稿を検索・被り確認</title>
+<meta name="description" content="Xからダウンロードした自分の投稿データのファイルを選ぶと、過去の投稿の検索と、書こうとしている下書きに似た過去投稿の確認ができます。選んだファイルはこの端末の中だけで読み、サーバーには送りません。">
+<style>
+  :root {
+    --bg: #f2f6f4; --surface: #ffffff; --ink: #17211c; --ink2: #3c4a43; --ink3: #5a6a62;
+    --line: #d3ddd8; --line-strong: #7d8c84; --accent: #1F6B52; --accent-ink: #ffffff; --accent-soft: #e2f1ea;
+    --warn-bg: #fff1cf; --warn-line: #c99a2e; --warn-ink: #5e3800;
+    --danger: #b3261e; --danger-bg: #fdecea; --bar: #1F6B52; --bar-bg: #e3ebe7;
+    --font: "Hiragino Sans","Yu Gothic","BIZ UDPGothic","Noto Sans JP",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1512; --surface: #18201c; --ink: #eaf1ed; --ink2: #c3cfc9; --ink3: #9fafa7;
+      --line: #33403a; --line-strong: #7a8a82; --accent: #7CCBAE; --accent-ink: #0c1f17; --accent-soft: #1d3329;
+      --warn-bg: #3a2f10; --warn-line: #8a6d2a; --warn-ink: #ffe0a0;
+      --danger: #ff9a92; --danger-bg: #3a1d1b; --bar: #7CCBAE; --bar-bg: #26332d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.6; }
+  main { max-width: 1080px; margin: 0 auto; padding: 16px 16px 32px; }
+  h1 { font-size: 22px; line-height: 1.3; margin: 8px 0 8px; }
+  h2 { font-size: 17px; line-height: 1.4; margin: 0 0 8px; }
+  h3 { font-size: 15px; line-height: 1.4; margin: 0 0 6px; }
+  p { margin: 0 0 8px; }
+  .lead { color: var(--ink2); margin-bottom: 12px; }
+  .note { font-size: 14px; color: var(--ink2); }
+  .hint { font-size: 13px; color: var(--ink3); margin: 4px 0 0; overflow-wrap: anywhere; }
+  [hidden] { display: none !important; }
+  .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+  .layout { display: block; }
+  .col-in, .col-out { min-width: 0; }
+  @media (min-width: 880px) {
+    .layout { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 0 0 12px; }
+  .steps ol { margin: 0; padding-left: 22px; font-size: 14px; }
+  .steps li { margin: 0 0 4px; overflow-wrap: anywhere; }
+  .steps li:last-child { margin-bottom: 0; }
+  .ng { color: var(--danger); font-weight: 700; }
+
+  button, .filebtn {
+    font: inherit; font-size: 16px; min-height: 44px; padding: 8px 14px; border-radius: 6px; cursor: pointer;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong);
+  }
+  button.primary, .filebtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+  .filebtn { display: flex; align-items: center; justify-content: center; width: 100%; text-align: center; }
+  .filebtn:focus-within, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .filebtn[aria-disabled="true"] { opacity: .6; cursor: default; }
+  button.wide { width: 100%; }
+  input[type="search"], input[type="text"], select, textarea {
+    width: 100%; max-width: 100%; min-width: 0; font: inherit; font-size: 16px; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px; min-height: 44px;
+  }
+  textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  label.lb { display: block; font-size: 13px; color: var(--ink2); font-weight: 600; margin: 0 0 2px; }
+  .field { margin: 0 0 10px; min-width: 0; }
+  .field:last-child { margin-bottom: 0; }
+  .chk { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 15px; cursor: pointer; }
+  .chk input { width: 22px; height: 22px; flex: none; margin: 0; }
+
+  .status { font-size: 14px; margin: 8px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--accent-soft); color: var(--ink); overflow-wrap: anywhere; }
+  .status.err { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); font-weight: 600; }
+  .status.warn { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line); }
+  .status ul { margin: 4px 0 0; padding-left: 18px; }
+  .status li { margin: 0 0 2px; }
+  .sum { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; }
+  .sum li { margin: 0 0 2px; overflow-wrap: anywhere; }
+  .sum b { font-variant-numeric: tabular-nums; }
+
+  .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 8px; }
+  .tabs button { min-height: 48px; font-weight: 700; border-radius: 8px; padding: 6px 4px; line-height: 1.3; font-size: 15px; }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .count { font-size: 14px; color: var(--ink2); margin: 0 0 8px; overflow-wrap: anywhere; }
+  .tw { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0 0 8px; min-width: 0; }
+  .tw .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 13px; color: var(--ink3); margin: 0 0 4px; }
+  .tw .meta .d { font-variant-numeric: tabular-nums; }
+  .tw .body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-size: 15px; line-height: 1.55; }
+  .tw .body.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .tw .foot { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 13px; color: var(--ink2); margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+  .tw .more { min-height: 44px; padding: 4px 10px; font-size: 14px; margin-top: 4px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 0 6px; border-radius: 4px; background: var(--accent-soft); color: var(--ink); border: 1px solid var(--line-strong); white-space: nowrap; }
+  .score { font-size: 20px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .empty { background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 8px; padding: 14px; color: var(--ink2); font-size: 15px; overflow-wrap: anywhere; }
+  .empty p:last-child { margin-bottom: 0; }
+
+  .bars { display: grid; gap: 8px; margin: 0 0 12px; padding: 0; list-style: none; }
+  .bars li { min-width: 0; }
+  .bars .row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 10px; font-size: 14px; }
+  .bars .row .nm { overflow-wrap: anywhere; font-weight: 600; min-width: 0; }
+  .bars .row .n { font-variant-numeric: tabular-nums; color: var(--ink2); white-space: nowrap; }
+  .bars .track { height: 8px; background: var(--bar-bg); border-radius: 4px; margin-top: 2px; overflow: hidden; }
+  .bars .fill { height: 100%; background: var(--bar); border-radius: 4px; }
+
+  .mw-footer { box-sizing: border-box; width: 100%; max-width: 100%; margin: 24px 0 0; padding: 16px; background: #F7F7F8;
+    color: #444; border-top: 1px solid #ddd; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mw-footer { background: #1b2420; color: #c3cfc9; border-top-color: #33403a; } }
+  .mw-footer p { margin: 0 0 6px; } .mw-footer p:last-child { margin-bottom: 0; } .mw-footer a { color: #0B5AA6; display: inline-block; padding: 13px 0; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mw-footer a { color: #8fc2ff; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>自分のXの過去投稿を検索・被り確認</h1>
+  <p class="lead">Xからダウンロードした自分の投稿データのファイルを選ぶと、過去の投稿の検索と、書こうとしている下書きに似た過去投稿の確認ができます。</p>
+
+  <div class="layout">
+    <div class="col-in">
+      <section class="card steps" aria-labelledby="hSteps">
+        <h2 id="hSteps">使い方</h2>
+        <ol>
+          <li>Xの設定から、自分のデータのアーカイブをダウンロードする（手順はXの画面の案内に従ってください）</li>
+          <li>ダウンロードしたフォルダの中の <b>tweets.js</b> を探す（分かれている場合は全部）</li>
+          <li>下のボタンで選ぶ。<span class="ng">DMのファイルは選ばない</span></li>
+        </ol>
+      </section>
+
+      <section class="card" aria-labelledby="hFile">
+        <h2 id="hFile">ファイルを選ぶ</h2>
+        <label class="filebtn" id="fileLabel" for="file">tweets.js を選ぶ</label>
+        <input type="file" id="file" class="vh" multiple>
+        <p class="hint">選んだファイルはこの端末の中だけで読みます。保存はしないので、使うたびに選び直します。</p>
+        <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+        <div id="bigWarn" hidden>
+          <button type="button" class="wide" id="bigGo" style="margin-top:8px">それでも読み込む</button>
+        </div>
+        <ul id="sum" class="sum" hidden></ul>
+        <label class="chk" id="repLabel" hidden><input type="checkbox" id="incReplies"><span>返信も含める</span></label>
+      </section>
+
+      <div class="tabs" role="tablist" aria-label="機能の切り替え">
+        <button type="button" role="tab" id="tabSearch" aria-selected="true" aria-controls="resSearch" data-tab="search">検索</button>
+        <button type="button" role="tab" id="tabDraft" aria-selected="false" aria-controls="resDraft" data-tab="draft" tabindex="-1">下書きの被り確認</button>
+        <button type="button" role="tab" id="tabStats" aria-selected="false" aria-controls="resStats" data-tab="stats" tabindex="-1">偏り</button>
+      </div>
+
+      <section class="card" aria-label="入力">
+        <div id="inSearch" data-pane="search">
+          <div class="field">
+            <label class="lb" for="q">キーワード（複数はスペース区切りで、すべて含む投稿）</label>
+            <input type="search" id="q" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="例: ラテ 季節">
+          </div>
+          <div class="field">
+            <label class="lb" for="sort">並べ替え</label>
+            <select id="sort"><option value="new">新しい順</option><option value="reaction">反応（いいね＋リポスト）が多い順</option></select>
+          </div>
+        </div>
+        <div id="inDraft" data-pane="draft" hidden>
+          <div class="field">
+            <label class="lb" for="draft">書こうとしている下書き</label>
+            <textarea id="draft" maxlength="5000" spellcheck="false" placeholder="ここに下書きを入れると、似ている過去の投稿が出ます"></textarea>
+          </div>
+          <p class="hint">下書きは画面の中だけで使い、どこにも送りません。</p>
+        </div>
+        <div id="inStats" data-pane="stats" hidden>
+          <div class="field">
+            <label class="lb" for="period">対象にする期間</label>
+            <select id="period"><option value="30">直近30件</option><option value="100">直近100件</option><option value="all">全件</option></select>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-out">
+      <div id="resEmpty" class="empty" role="status">
+        <p>まだ投稿のファイルを読み込んでいません。</p>
+        <p>左の手順で tweets.js を選ぶと、ここに結果が出ます。</p>
+      </div>
+      <div id="resSearch" role="tabpanel" aria-labelledby="tabSearch" hidden></div>
+      <div id="resDraft" role="tabpanel" aria-labelledby="tabDraft" hidden></div>
+      <div id="resStats" role="tabpanel" aria-labelledby="tabStats" hidden></div>
+    </div>
+  </div>
+
+  <footer class="mw-footer">
+    <p>みちAIワークス（MICHI AI WORKS）／代表 田中　泉</p>
+    <p>運営: <a href="https://michi-portfolio.vercel.app/" rel="noopener">みちAIワークス 公式サイト</a>（https://michi-portfolio.vercel.app/ ）／ お問い合わせ: <a href="mailto:nncf123nncf@gmail.com">nncf123nncf@gmail.com</a></p>
+    <p>選んだファイルと入力した下書きは、お使いの端末の中だけで処理します。サーバーには送信せず、保存もしません。アクセス解析（Cloudflare Web Analytics）で、ページの閲覧状況（閲覧数・参照元・ブラウザの種類など）を計測しています。ファイルの中身や下書きは送信しません。</p>
+    <p>似ている度合いは文字の重なりの目安で、同じ内容かどうかは判断していません。言い回しが違う同じ話は見つけられません。</p>
+    <p>ログイン・会員登録・パスワードの入力を求めることはありません。</p>
+  </footer>
+</main>
+
+<script id="core">
+var XPA = (function () {
+  'use strict';
+  var MAX_SHOW = 200, SIM_MIN = 10, SIM_THRESHOLD = 0.3, SIM_TOP = 5, TOP_N = 10;
+  var MON = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+  var JST_MS = 9 * 3600 * 1000;
+
+  function validYmdHms(y, mo, d, h, mi, s) {
+    if (mo < 0 || mo > 11 || d < 1 || d > 31 || h > 23 || mi > 59 || s > 59) return false;
+    var t = new Date(Date.UTC(y, mo, d, h, mi, s));
+    return t.getUTCFullYear() === y && t.getUTCMonth() === mo && t.getUTCDate() === d;
+  }
+  // 日時の解釈は自前（Date.parse の解釈差を避ける）。解釈できなければ null
+  function parseDate(s) {
+    if (typeof s !== 'string') return null;
+    s = s.trim();
+    var m = /^(?:[A-Za-z]{3},?\s+)?([A-Za-z]{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+([+-])(\d{2})(\d{2})\s+(\d{4})$/.exec(s);
+    if (m) {
+      if (!Object.prototype.hasOwnProperty.call(MON, m[1])) return null;
+      var y = +m[9], mo = MON[m[1]], d = +m[2], h = +m[3], mi = +m[4], se = +m[5];
+      if (!validYmdHms(y, mo, d, h, mi, se)) return null;
+      var oh = +m[7], om = +m[8]; if (oh > 14 || om > 59) return null;
+      return Date.UTC(y, mo, d, h, mi, se) - (m[6] === '-' ? -1 : 1) * (oh * 60 + om) * 60000;
+    }
+    m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/.exec(s);
+    if (m) {
+      var y2 = +m[1], mo2 = +m[2] - 1, d2 = +m[3], h2 = +m[4], mi2 = +m[5], s2 = m[6] ? +m[6] : 0;
+      if (!validYmdHms(y2, mo2, d2, h2, mi2, s2)) return null;
+      var off = 0;
+      if (m[7] && m[7] !== 'Z') {
+        var z = /^([+-])(\d{2}):?(\d{2})?$/.exec(m[7]); var zh = +z[2], zm = z[3] ? +z[3] : 0;
+        if (zh > 14 || zm > 59) return null;
+        off = (z[1] === '-' ? -1 : 1) * (zh * 60 + zm);
+      }
+      return Date.UTC(y2, mo2, d2, h2, mi2, s2) - off * 60000;
+    }
+    return null;
+  }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  // 表示は日本時間(UTC+9)に固定
+  function fmtDate(ms, withTime) {
+    if (ms === null || ms === undefined) return '不明';
+    var t = new Date(ms + JST_MS);
+    var s = t.getUTCFullYear() + '-' + pad2(t.getUTCMonth() + 1) + '-' + pad2(t.getUTCDate());
+    return withTime ? s + ' ' + pad2(t.getUTCHours()) + ':' + pad2(t.getUTCMinutes()) : s;
+  }
+  // 数は文字列でも入る。欠落・非数は null（0扱いにしない）
+  function parseCount(v) {
+    if (typeof v === 'number') return isFinite(v) && v >= 0 ? v : null;
+    if (typeof v !== 'string') return null;
+    var s = v.trim(); if (!s) return null;
+    var n = Number(s);
+    return isFinite(n) && n >= 0 ? n : null;
+  }
+  function fmtCount(n) {
+    if (n === null || n === undefined) return '—';
+    return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function nonEmptyStr(v) { return typeof v === 'string' && v.length > 0; }
+
+  function normTweet(el, idx) {
+    if (!el || typeof el !== 'object' || Array.isArray(el)) return null;
+    var t = el.tweet;
+    if (!t || typeof t !== 'object' || Array.isArray(t)) return null;
+    if (typeof t.full_text !== 'string') return null;
+    var ms = parseDate(t.created_at);
+    return {
+      idx: idx, id: nonEmptyStr(t.id_str) ? t.id_str : '', text: t.full_text, ms: ms,
+      fav: parseCount(t.favorite_count), rt: parseCount(t.retweet_count),
+      isRT: /^RT @/.test(t.full_text),
+      isReply: nonEmptyStr(t.in_reply_to_status_id_str) || nonEmptyStr(t.in_reply_to_screen_name),
+      _n: null, _k: null, _set: undefined
+    };
+  }
+
+  var OTHER_FILES = {
+    direct_messages: 'DM（ダイレクトメッセージ）', direct_message_headers: 'DM（ダイレクトメッセージ）',
+    direct_messages_group: 'DM（ダイレクトメッセージ）', direct_message_group_headers: 'DM（ダイレクトメッセージ）',
+    like: 'いいねした投稿', follower: 'フォロワー', following: 'フォロー中のアカウント', deleted_tweets: '削除した投稿'
+  };
+
+  // 1ファイルぶんを読む。{ok:true, items, total, bad} か {ok:false, reason}
+  function parseArchiveText(text) {
+    if (typeof text !== 'string' || text.length === 0) return { ok: false, reason: '空のファイルです。' };
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    if (text.slice(0, 2) === 'PK') return { ok: false, reason: 'ZIPファイルのようです。ZIPを開いて、中の tweets.js を選んでください。' };
+    var head = text.slice(0, 300);
+    var m = /^\s*window\.YTD\.([A-Za-z0-9_]+)\.part(\d+)\s*=\s*/.exec(head);
+    if (!m) return { ok: false, reason: '投稿の形式として読めません。先頭が「window.YTD.tweets.part0 = 」の形のファイル（tweets.js）を選んでください。' };
+    var key = m[1];
+    if (key !== 'tweets') {
+      var what = Object.prototype.hasOwnProperty.call(OTHER_FILES, key) ? OTHER_FILES[key] : null;
+      return { ok: false, reason: what ? ('投稿のファイルではなく、' + what + 'のファイルのようです。tweets.js を選んでください。') : '投稿のファイルではないようです（種類: ' + key + '）。tweets.js を選んでください。' };
+    }
+    var body = text.slice(m[0].length).trim();
+    if (body.charAt(body.length - 1) === ';') body = body.slice(0, -1);
+    var data;
+    try { data = JSON.parse(body); } catch (e) { return { ok: false, reason: '投稿の形式として読めません（中身がJSONとして解釈できません。途中で切れているか、壊れている可能性があります）。' }; }
+    if (!Array.isArray(data)) return { ok: false, reason: '投稿の形式として読めません（投稿の一覧になっていません）。' };
+    if (data.length === 0) return { ok: true, items: [], total: 0, bad: 0 };
+    var items = [], bad = 0;
+    for (var i = 0; i < data.length; i++) { var it = normTweet(data[i], i); if (it) items.push(it); else bad++; }
+    if (items.length === 0) return { ok: false, reason: '投稿の形式として読めません（各項目に tweet と full_text が見つかりません）。' };
+    return { ok: true, items: items, total: data.length, bad: bad };
+  }
+
+  // 複数ファイルを1つにまとめる（同じ投稿ID は1件）
+  function mergeParts(parts) {
+    var all = [], seen = Object.create(null), dup = 0, bad = 0, total = 0, n = 0;
+    parts.forEach(function (p) {
+      total += p.total; bad += p.bad;
+      p.items.forEach(function (it) {
+        if (it.id) { if (seen[it.id]) { dup++; return; } seen[it.id] = 1; }
+        it.idx = n++; all.push(it);
+      });
+    });
+    return { items: all, total: total, bad: bad, dup: dup };
+  }
+
+  function summarize(items) {
+    var rt = 0, reply = 0, min = null, max = null;
+    items.forEach(function (it) {
+      if (it.isRT) rt++; else if (it.isReply) reply++;
+      if (it.ms !== null) { if (min === null || it.ms < min) min = it.ms; if (max === null || it.ms > max) max = it.ms; }
+    });
+    return { all: items.length, rt: rt, reply: reply, own: items.length - rt - reply, min: min, max: max };
+  }
+
+  function eligible(items, includeReplies) {
+    return items.filter(function (it) { return !it.isRT && (includeReplies || !it.isReply); });
+  }
+
+  function nfkcLower(s) { return s.normalize('NFKC').toLowerCase(); }
+  function normOf(it) { if (it._n === null) it._n = nfkcLower(it.text); return it._n; }
+
+  function search(items, query, includeReplies) {
+    var toks = nfkcLower(query || '').split(/\s+/).filter(Boolean);
+    return eligible(items, includeReplies).filter(function (it) {
+      if (!toks.length) return true;
+      var n = normOf(it);
+      for (var i = 0; i < toks.length; i++) if (n.indexOf(toks[i]) < 0) return false;
+      return true;
+    });
+  }
+
+  function reactionOf(it) { return it.fav === null && it.rt === null ? null : (it.fav || 0) + (it.rt || 0); }
+  function cmpNew(a, b) {
+    if (a.ms === null && b.ms === null) return a.idx - b.idx;
+    if (a.ms === null) return 1; if (b.ms === null) return -1;
+    return b.ms !== a.ms ? b.ms - a.ms : a.idx - b.idx;
+  }
+  function sortItems(list, mode) {
+    var out = list.slice();
+    if (mode === 'reaction') {
+      out.sort(function (a, b) {
+        var ra = reactionOf(a), rb = reactionOf(b);
+        if (ra === null && rb === null) return cmpNew(a, b);
+        if (ra === null) return 1; if (rb === null) return -1;
+        return ra !== rb ? rb - ra : cmpNew(a, b);
+      });
+    } else out.sort(cmpNew);
+    return out;
+  }
+
+  // ---- 類似度（文字2文字ずつの集合の Dice 係数） ----
+  var RE_URL = /https?:\/\/\S+/g, RE_TAG = /#[\p{L}\p{N}\p{M}_]+/gu, RE_MENTION = /@[a-z0-9_]+/g;
+  function simText(s) {
+    return nfkcLower(s).replace(RE_URL, '').replace(RE_TAG, '').replace(RE_MENTION, '').replace(/\s+/g, '');
+  }
+  function bigrams(s) {
+    var set = new Set();
+    for (var i = 0; i + 1 < s.length; i++) set.add(s.charCodeAt(i) * 65536 + s.charCodeAt(i + 1));
+    return set;
+  }
+  function dice(a, b) {
+    if (!a.size || !b.size) return 0;
+    var small = a.size <= b.size ? a : b, big = small === a ? b : a, inter = 0;
+    small.forEach(function (v) { if (big.has(v)) inter++; });
+    return 2 * inter / (a.size + b.size);
+  }
+  function prepSim(it) {
+    if (it._set !== undefined) return;
+    var k = simText(it.text);
+    it._k = k; it._set = k.length >= SIM_MIN ? bigrams(k) : null;
+  }
+  // 類似度の下準備。大きなファイルで画面が固まらないよう、区切って進める
+  function prepareSimilarity(items, onProgress) {
+    return new Promise(function (resolve) {
+      var i = 0, CH = 2000;
+      (function step() {
+        var end = Math.min(items.length, i + CH);
+        for (; i < end; i++) if (!items[i].isRT) prepSim(items[i]);
+        if (onProgress) onProgress(i, items.length);
+        if (i < items.length) setTimeout(step, 0); else resolve();
+      })();
+    });
+  }
+  function similar(items, draft, includeReplies) {
+    var dk = simText(draft || '');
+    if (dk.length < SIM_MIN) return { status: 'short', results: [], skippedShort: 0, compared: 0 };
+    var dset = bigrams(dk), groups = new Map(), skippedShort = 0;
+    eligible(items, includeReplies).forEach(function (it) {
+      prepSim(it);
+      if (!it._set) { skippedShort++; return; }
+      var g = groups.get(it._k);
+      if (!g) { groups.set(it._k, { item: it, count: 1, score: dice(dset, it._set) }); return; }
+      g.count++;
+      if (cmpNew(it, g.item) < 0) g.item = it;
+    });
+    var arr = [];
+    groups.forEach(function (g) { if (g.score >= SIM_THRESHOLD) arr.push(g); });
+    arr.sort(function (a, b) { return b.score !== a.score ? b.score - a.score : cmpNew(a.item, b.item); });
+    return { status: 'ok', results: arr.slice(0, SIM_TOP), skippedShort: skippedShort, compared: groups.size };
+  }
+
+  // ---- 偏り ----
+  function recent(items, n) {
+    var s = items.slice().sort(cmpNew);
+    return n === 'all' ? s : s.slice(0, n);
+  }
+  var RE_WORD = /[ァ-ヶ][ァ-ヶー]+|[一-龥々]{2,}|[a-z][a-z0-9]{2,}/g;
+  function topCounts(map, order) {
+    var arr = []; map.forEach(function (v, k) { arr.push({ label: v.label, n: v.n, key: k }); });
+    arr.sort(function (a, b) { return b.n !== a.n ? b.n - a.n : (a.key < b.key ? -1 : a.key > b.key ? 1 : 0); });
+    return arr.slice(0, TOP_N);
+  }
+  function stats(list) {
+    var tags = new Map(), words = new Map(), withTag = 0;
+    list.forEach(function (it) {
+      var n = it.text.normalize('NFKC');
+      var tg = n.match(RE_TAG) || [], seenT = {}, seenW = {};
+      var hadTag = false;
+      tg.forEach(function (t) {
+        var k = t.toLowerCase(); if (seenT[k]) return; seenT[k] = 1; hadTag = true;
+        var e = tags.get(k); if (e) e.n++; else tags.set(k, { label: t, n: 1 });
+      });
+      if (hadTag) withTag++;
+      var body = n.toLowerCase().replace(RE_URL, ' ').replace(RE_TAG, ' ').replace(RE_MENTION, ' ');
+      (body.match(RE_WORD) || []).forEach(function (w) {
+        if (seenW[w]) return; seenW[w] = 1;
+        var e = words.get(w); if (e) e.n++; else words.set(w, { label: w, n: 1 });
+      });
+    });
+    return { posts: list.length, withTag: withTag, tags: topCounts(tags), words: topCounts(words) };
+  }
+
+  return {
+    MAX_SHOW: MAX_SHOW, SIM_MIN: SIM_MIN, SIM_THRESHOLD: SIM_THRESHOLD, SIM_TOP: SIM_TOP, TOP_N: TOP_N,
+    parseDate: parseDate, fmtDate: fmtDate, parseCount: parseCount, fmtCount: fmtCount,
+    parseArchiveText: parseArchiveText, mergeParts: mergeParts, summarize: summarize, eligible: eligible,
+    search: search, sortItems: sortItems, reactionOf: reactionOf, simText: simText, bigrams: bigrams, dice: dice,
+    prepareSimilarity: prepareSimilarity, similar: similar, recent: recent, stats: stats
+  };
+})();
+</script>
+
+<script id="ui">
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var WARN_BYTES = 100 * 1024 * 1024, HARD_BYTES = 400 * 1024 * 1024;
+  var state = { items: [], loaded: false, replies: false, tab: 'search', simReady: false, simDone: 0, seq: 0, pending: null, busy: false };
+  var timers = {};
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined && text !== null) e.textContent = text;
+    return e;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+  function fmtSize(b) {
+    if (b >= 1048576) return (b / 1048576).toFixed(1) + 'MB';
+    if (b >= 1024) return Math.round(b / 1024) + 'KB';
+    return b + 'B';
+  }
+  function setStatus(kind, lines, listLines) {
+    var s = $('status'); clear(s); s.className = 'status' + (kind ? ' ' + kind : '');
+    if (!lines) { s.hidden = true; return; }
+    s.hidden = false;
+    var p = el('p', null, lines); p.style.margin = '0'; s.appendChild(p);
+    if (listLines && listLines.length) { var ul = el('ul'); listLines.forEach(function (t) { ul.appendChild(el('li', null, t)); }); s.appendChild(ul); }
+  }
+  function nextPaint() { return new Promise(function (r) { setTimeout(r, 40); }); }
+  function readText(file) {
+    if (file.text) return file.text();
+    return new Promise(function (res, rej) {
+      var fr = new FileReader(); fr.onload = function () { res(String(fr.result)); }; fr.onerror = function () { rej(fr.error || new Error('read')); }; fr.readAsText(file);
+    });
+  }
+
+  // ---- 読み込み ----
+  function onFiles(files) {
+    var total = 0; files.forEach(function (f) { total += f.size; });
+    var names = files.map(function (f) { return f.name + '（' + fmtSize(f.size) + '）'; }).join('、');
+    if (total > HARD_BYTES) { setStatus('err', '選んだファイルが大きすぎます（合計 ' + fmtSize(total) + '）。投稿のファイル（tweets.js）以外を選んでいないか確認してください。'); return; }
+    if (total > WARN_BYTES) {
+      state.pending = files; $('bigWarn').hidden = false;
+      setStatus('warn', '非常に大きいファイルです（合計 ' + fmtSize(total) + '）。読み込みに時間がかかり、端末によっては止まることがあります。投稿のファイル（tweets.js）で合っているか確認してください。' + '選んだファイル: ' + names);
+      return;
+    }
+    load(files);
+  }
+  function load(files) {
+    var seq = ++state.seq; state.pending = null; $('bigWarn').hidden = true;
+    state.busy = true; $('fileLabel').setAttribute('aria-disabled', 'true');
+    var total = 0; files.forEach(function (f) { total += f.size; });
+    setStatus('', '読み込み中です…（' + files.length + 'ファイル・合計 ' + fmtSize(total) + '）。そのままお待ちください。');
+    nextPaint().then(function () {
+      var parts = [], errors = [], chain = Promise.resolve();
+      files.forEach(function (f) {
+        chain = chain.then(function () { return readText(f); }).then(function (t) {
+          var r = XPA.parseArchiveText(t);
+          if (r.ok) parts.push(r); else errors.push(f.name + ' → ' + r.reason);
+        }, function () { errors.push(f.name + ' → ファイルを読み込めませんでした。'); });
+      });
+      return chain.then(function () { return { parts: parts, errors: errors }; });
+    }).then(function (res) {
+      if (seq !== state.seq) return;
+      state.busy = false; $('fileLabel').removeAttribute('aria-disabled');
+      if (res.errors.length) {
+        var keep = state.loaded ? '前に読み込んだ内容はそのまま残っています。' : '';
+        setStatus('err', '読み込めませんでした。' + keep, res.errors);
+        return;
+      }
+      var merged = XPA.mergeParts(res.parts);
+      state.items = merged.items; state.loaded = true; state.simReady = false; state.simDone = 0;
+      showSummary(merged);
+      $('resEmpty').hidden = true; $('repLabel').hidden = false;
+      setStatus('', null);
+      renderAll();
+      var mySeq = seq;
+      XPA.prepareSimilarity(state.items, function (d) { if (mySeq === state.seq) { state.simDone = d; if (state.tab === 'draft' && d < state.items.length) renderDraft(); } }).then(function () {
+        if (mySeq !== state.seq) return; state.simReady = true; renderDraft();
+      });
+    }).catch(function (e) {
+      state.busy = false; $('fileLabel').removeAttribute('aria-disabled');
+      setStatus('err', '読み込み中にエラーが起きました: ' + (e && e.message ? e.message : String(e)));
+    });
+  }
+  function showSummary(merged) {
+    var s = XPA.summarize(state.items), ul = $('sum'); clear(ul); ul.hidden = false;
+    function li(parts) { var x = el('li'); parts.forEach(function (p) { x.appendChild(typeof p === 'string' ? document.createTextNode(p) : p); }); ul.appendChild(x); }
+    li([el('b', null, XPA.fmtCount(s.all) + '件'), 'を読み込みました']);
+    if (merged.total === 0) li(['読み込めましたが、投稿は0件でした（ファイルの中身が空です）']);
+    li(['リポスト', el('b', null, XPA.fmtCount(s.rt) + '件'), 'を除外']);
+    li(['返信 ', el('b', null, XPA.fmtCount(s.reply) + '件'), '（下のチェックで含めるか切り替え）']);
+    li(['期間 ', el('b', null, s.min === null ? '不明' : XPA.fmtDate(s.min) + ' 〜 ' + XPA.fmtDate(s.max)), '（日本時間）']);
+    if (merged.bad) li([merged.bad + '件は形式が違うため読み込めませんでした']);
+    if (merged.dup) li(['重複していた' + merged.dup + '件は1件にまとめました']);
+  }
+
+  // ---- 描画 ----
+  function tweetCard(it, extraMeta, opts) {
+    var c = el('article', 'tw'), meta = el('div', 'meta');
+    if (opts && opts.score !== undefined) meta.appendChild(el('span', 'score', '類似度 ' + Math.round(opts.score * 100) + '%'));
+    meta.appendChild(el('span', 'd', XPA.fmtDate(it.ms, true)));
+    if (it.isReply) meta.appendChild(el('span', 'badge', '返信'));
+    if (extraMeta) meta.appendChild(el('span', null, extraMeta));
+    c.appendChild(meta);
+    var body = el('p', 'body', it.text);
+    c.appendChild(body);
+    if (it.text.length > 110) {
+      body.classList.add('clamp');
+      var b = el('button', 'more', '全文を表示'); b.type = 'button'; b.setAttribute('aria-expanded', 'false');
+      b.addEventListener('click', function () {
+        var open = body.classList.toggle('clamp') === false;
+        b.textContent = open ? 'たたむ' : '全文を表示'; b.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      c.appendChild(b);
+    }
+    var foot = el('div', 'foot');
+    foot.appendChild(el('span', null, 'いいね ' + XPA.fmtCount(it.fav)));
+    foot.appendChild(el('span', null, 'リポスト ' + XPA.fmtCount(it.rt)));
+    c.appendChild(foot);
+    return c;
+  }
+  function renderSearch() {
+    var box = $('resSearch'); clear(box);
+    var list = XPA.sortItems(XPA.search(state.items, $('q').value, state.replies), $('sort').value);
+    var base = XPA.eligible(state.items, state.replies).length;
+    var q = $('q').value.trim();
+    var head = el('p', 'count');
+    head.textContent = q
+      ? (list.length === 0 ? '該当する投稿はありません（対象 ' + XPA.fmtCount(base) + '件のうち0件）' : XPA.fmtCount(list.length) + '件見つかりました（対象 ' + XPA.fmtCount(base) + '件のうち）')
+      : '全 ' + XPA.fmtCount(base) + '件を表示しています（対象は自分の投稿' + (state.replies ? '・返信を含む' : '・返信を除く') + '）';
+    if (list.length > XPA.MAX_SHOW) head.textContent += '。多いため、先頭の' + XPA.MAX_SHOW + '件だけ表示しています（残り ' + XPA.fmtCount(list.length - XPA.MAX_SHOW) + '件）';
+    box.appendChild(head);
+    if ($('sort').value === 'reaction') box.appendChild(el('p', 'hint', '反応＝いいね数とリポスト数の合計です（インプレッション数は、ファイルに入っているかを確認できていないため使っていません）。'));
+    if (list.length === 0 && base === 0) box.appendChild(el('div', 'empty', '対象になる投稿が0件です。'));
+    var frag = document.createDocumentFragment();
+    list.slice(0, XPA.MAX_SHOW).forEach(function (it) { frag.appendChild(tweetCard(it)); });
+    box.appendChild(frag);
+  }
+  function renderDraft() {
+    var box = $('resDraft'); clear(box);
+    var text = $('draft').value;
+    if (!text.trim()) { box.appendChild(el('div', 'empty', '左の欄に下書きを入れると、似ている過去の投稿が出ます。')); return; }
+    if (!state.simReady) {
+      box.appendChild(el('div', 'empty', '類似度の下準備中です…（' + XPA.fmtCount(state.simDone) + ' / ' + XPA.fmtCount(state.items.length) + '件）'));
+      return;
+    }
+    var r = XPA.similar(state.items, text, state.replies);
+    if (r.status === 'short') { box.appendChild(el('div', 'empty', '短すぎて比較できません。URL・タグ・メンションを除いて、' + XPA.SIM_MIN + '文字以上の下書きを入れてください。')); return; }
+    if (!r.results.length) {
+      var e = el('div', 'empty');
+      e.appendChild(el('p', null, '似た投稿は見つかりませんでした（文字の重なりで見ているため、言い回しが違う同じ話は拾えません）。'));
+      e.appendChild(el('p', null, '類似度 ' + Math.round(XPA.SIM_THRESHOLD * 100) + '%以上のものだけを出しています。比べた過去投稿は ' + XPA.fmtCount(r.compared) + '件です。'));
+      box.appendChild(e);
+    } else {
+      box.appendChild(el('p', 'count', '似ている過去の投稿 上位' + r.results.length + '件（類似度 ' + Math.round(XPA.SIM_THRESHOLD * 100) + '%以上のみ）'));
+      box.appendChild(el('p', 'hint', '文字の重なりの目安です。同じ内容かどうかは判断していません。'));
+      r.results.forEach(function (g) { box.appendChild(tweetCard(g.item, g.count > 1 ? '同じ本文の投稿が他に' + (g.count - 1) + '件（新しい1件だけ表示）' : '', { score: g.score })); });
+    }
+    if (r.skippedShort) box.appendChild(el('p', 'hint', '短すぎて比べられない過去投稿が ' + XPA.fmtCount(r.skippedShort) + '件あります（比較から除いています）。'));
+  }
+  function barList(title, rows, posts) {
+    var wrap = el('div'); wrap.appendChild(el('h3', null, title));
+    if (!rows.length) { wrap.appendChild(el('p', 'note', '該当するものはありません。')); return wrap; }
+    var max = rows[0].n, ul = el('ul', 'bars');
+    rows.forEach(function (r) {
+      var li = el('li'), row = el('div', 'row');
+      row.appendChild(el('span', 'nm', r.label)); row.appendChild(el('span', 'n', XPA.fmtCount(r.n) + '件'));
+      li.appendChild(row);
+      var tr = el('div', 'track'), f = el('div', 'fill'); f.style.width = Math.max(2, Math.round(r.n / max * 100)) + '%';
+      tr.appendChild(f); li.appendChild(tr); ul.appendChild(li);
+    });
+    wrap.appendChild(ul); return wrap;
+  }
+  function renderStats() {
+    var box = $('resStats'); clear(box);
+    var pv = $('period').value, n = pv === 'all' ? 'all' : parseInt(pv, 10);
+    var list = XPA.recent(XPA.eligible(state.items, state.replies), n);
+    if (!list.length) { box.appendChild(el('div', 'empty', '対象になる投稿が0件です。')); return; }
+    var st = XPA.stats(list), dates = list.filter(function (x) { return x.ms !== null; }).map(function (x) { return x.ms; });
+    var span = dates.length ? XPA.fmtDate(Math.min.apply(null, dates)) + ' 〜 ' + XPA.fmtDate(Math.max.apply(null, dates)) : '日付不明';
+    box.appendChild(el('p', 'count', '対象 ' + XPA.fmtCount(st.posts) + '件（' + span + '・日本時間）。ハッシュタグつきの投稿は ' + XPA.fmtCount(st.withTag) + '件です。'));
+    box.appendChild(barList('よく使うハッシュタグ 上位' + XPA.TOP_N, st.tags));
+    box.appendChild(barList('よく出る言葉 上位' + XPA.TOP_N, st.words));
+    box.appendChild(el('p', 'hint', '件数は、その言葉を含む投稿の数です。言葉は、漢字・カタカナ・英字が続く部分を数えています（ひらがなだけの語・1文字の漢字は数えません）。'));
+  }
+  function renderAll() { renderSearch(); renderDraft(); renderStats(); showTab(state.tab); }
+  function showTab(t) {
+    state.tab = t;
+    ['search', 'draft', 'stats'].forEach(function (k) {
+      var on = k === t, cap = k.charAt(0).toUpperCase() + k.slice(1);
+      var btn = $('tab' + cap); btn.setAttribute('aria-selected', on ? 'true' : 'false'); btn.tabIndex = on ? 0 : -1;
+      $('in' + cap).hidden = !on; $('res' + cap).hidden = !(on && state.loaded);
+    });
+    $('resEmpty').hidden = state.loaded;
+  }
+  function later(key, fn, ms) { clearTimeout(timers[key]); timers[key] = setTimeout(fn, ms); }
+
+  // ---- イベント ----
+  $('file').addEventListener('change', function () {
+    var files = Array.prototype.slice.call(this.files || []); this.value = '';
+    if (!files.length) return;
+    onFiles(files);
+  });
+  $('bigGo').addEventListener('click', function () { if (state.pending) load(state.pending); });
+  $('q').addEventListener('input', function () { if (state.loaded) later('q', renderSearch, 120); });
+  $('sort').addEventListener('change', function () { if (state.loaded) renderSearch(); });
+  $('draft').addEventListener('input', function () { if (state.loaded) later('d', renderDraft, 200); });
+  $('period').addEventListener('change', function () { if (state.loaded) renderStats(); });
+  $('incReplies').addEventListener('change', function () { state.replies = this.checked; if (state.loaded) renderAll(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+    b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); });
+    b.addEventListener('keydown', function (e) {
+      var order = ['search', 'draft', 'stats'], i = order.indexOf(state.tab), d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!d) return; e.preventDefault(); var t = order[(i + d + 3) % 3]; showTab(t); $('tab' + t.charAt(0).toUpperCase() + t.slice(1)).focus();
+    });
+  });
+  showTab('search');
+})();
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon='{"token": "b4c9f7e78daf4edb84ef52b88633f649"}'></script>
+</body>
+</html>
