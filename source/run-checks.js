@@ -70,6 +70,7 @@ eq(X.search(S, 'ﾗﾃ', false).length, 2, 'S5 半角カナ');
 // S6 並べ替え
 const P = X.parseArchiveText(file([mk({ id_str: 'a', favorite_count: '5', retweet_count: '5', created_at: 'Mon Jan 01 00:00:00 +0000 2024' }), mk({ id_str: 'b', favorite_count: '10', retweet_count: '0', created_at: 'Mon Jan 02 00:00:00 +0000 2024' }), mk({ id_str: 'c', favorite_count: '1', retweet_count: '0', created_at: 'Mon Jan 03 00:00:00 +0000 2024' }), mk({ id_str: 'd', favorite_count: 'x', retweet_count: undefined, created_at: 'Mon Jan 04 00:00:00 +0000 2024' }), mk({ id_str: 'e', favorite_count: '0', retweet_count: '0', created_at: 'Mon Jan 05 00:00:00 +0000 2024' })])).items;
 eq(X.sortItems(P, 'new').map(i => i.id), ['e', 'd', 'c', 'b', 'a'], 'S6 新しい順'); eq(X.sortItems(P, 'reaction').map(i => i.id), ['b', 'a', 'c', 'e', 'd'], 'S6 反応順(同点は新しい順・不明は末尾)');
+eq(X.reactionOf(X.parseArchiveText(file([mk({ favorite_count: '5', retweet_count: undefined })])).items[0]), null, 'S6 片方欠落は0扱いにしない');
 eq(X.reactionOf(P[3]), null, 'S6 反応不明');
 // リポスト・返信
 const rr = X.parseArchiveText(file([mk({ id_str: '1', full_text: 'RT @x: こんにちは' }), mk({ id_str: '2', full_text: '@y 返信ですよ', in_reply_to_status_id_str: '9' }), mk({ id_str: '3', full_text: '普通の投稿です' }), mk({ id_str: '4', full_text: 'RT という言葉を含む投稿' })])).items;
@@ -129,7 +130,9 @@ console.log('  サンプル 偏り(全件) タグ:', ss.tags.slice(0, 3).map(t =
 
 // S10 XSS文字列は文字列のまま保持（描画は textContent。e2e で画面確認）
 const xs = X.parseArchiveText(file([mk({ full_text: '<img src=x onerror=window.__xss=1>&amp;<script>window.__xss=2</script>' })]));
-eq(xs.items[0].text, '<img src=x onerror=window.__xss=1>&amp;<script>window.__xss=2</script>', 'S10 本文は加工せず保持');
+eq(xs.items[0].text, '<img src=x onerror=window.__xss=1>&<script>window.__xss=2</script>', 'S10 本文は&amp;だけ戻して保持(HTMLとして解釈しない)');
+eq(X.parseArchiveText(file([mk({ full_text: 'A &amp; B &lt;3 &gt; &quot;x&quot; &#39;y&#39; &amp;lt;' })])).items[0].text, `A & B <3 > "x" 'y' &lt;`, 'エンティティの復号(二重復号しない)');
+eq(X.search(X.parseArchiveText(file([mk({ full_text: 'ラテ &amp; ケーキ' })])).items, 'ラテ & ケーキ', false).length, 1, '&で検索できる');
 tr(!/innerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/.test(html.replace(/<script id="core">[\s\S]*?<\/script>/, m => m).replace(/\/\/.*$/gm, '')), 'S10 innerHTML等を使っていない');
 
 // S11 巨大(3万件)
